@@ -1,0 +1,12 @@
+# Secrets & credentials — never commit
+.env
+Get_crednetilas.py
+
+# Personal health data — never commit
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
