@@ -46,8 +46,11 @@ def load_data():
 
     def read(table):
         try:
-            return pd.read_sql(f"SELECT * FROM {table}", engine)
-        except Exception:
+            df = pd.read_sql(f"SELECT * FROM {table}", engine)
+            print(f"[DB] {table}: {len(df)} rows")
+            return df
+        except Exception as e:
+            print(f"[DB ERROR] {table}: {e}")
             return pd.DataFrame()
 
     sleep    = read("sleep")
