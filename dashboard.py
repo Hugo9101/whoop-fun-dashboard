@@ -67,6 +67,22 @@ def load_data():
     return sleep, recovery, workouts, cycles
 
 
+def apply_date_filter(sleep, recovery, workouts, cycles, days):
+    if not days:
+        return sleep, recovery, workouts, cycles
+    cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=days)
+
+    def clip(df, col):
+        return df[df[col] >= cutoff] if col in df.columns and not df.empty else df
+
+    return (
+        clip(sleep,    "start"),
+        clip(recovery, "created_at"),
+        clip(workouts, "start"),
+        clip(cycles,   "start"),
+    )
+
+
 # ── Chart builders ─────────────────────────────────────────────────────────────
 
 def base_layout(title):
@@ -331,22 +347,53 @@ def build_app():
             html.Div([
                 html.Button("Dashboard",          id="tab-dashboard",    n_clicks=0),
                 html.Button("Metric Definitions", id="tab-definitions",  n_clicks=0),
-            ], id="tab-bar", style={"display": "flex", "gap": "4px", "marginBottom": "24px"}),
+            ], id="tab-bar", style={"display": "flex", "gap": "4px", "marginBottom": "16px"}),
+
+            # ── Date filter ───────────────────────────────────────────────────
+            html.Div([
+                html.Span("Period:", style={
+                    "color": MUTED, "fontSize": "13px",
+                    "alignSelf": "center", "marginRight": "8px",
+                }),
+                dcc.Dropdown(
+                    id="date-filter",
+                    options=[
+                        {"label": "Last 7 days",  "value": 7},
+                        {"label": "Last 30 days", "value": 30},
+                        {"label": "Last 90 days", "value": 90},
+                        {"label": "All time",     "value": 0},
+                    ],
+                    value=7,
+                    clearable=False,
+                    style={
+                        "width": "160px",
+                        "background": SURFACE,
+                        "color": TEXT,
+                        "border": f"1px solid {BORDER}",
+                        "borderRadius": "8px",
+                        "fontSize": "13px",
+                    },
+                ),
+            ], id="filter-bar", style={
+                "display": "flex", "alignItems": "center",
+                "marginBottom": "16px",
+            }),
 
             # ── Content area ──────────────────────────────────────────────────
             html.Div(id="tab-content"),
         ],
     )
 
-    # Inject tab button styles via clientside or server callback
     @app.callback(
-        Output("tab-content", "children"),
+        Output("tab-content",     "children"),
         Output("tab-dashboard",   "style"),
         Output("tab-definitions", "style"),
+        Output("filter-bar",      "style"),
         Input("tab-dashboard",    "n_clicks"),
         Input("tab-definitions",  "n_clicks"),
+        Input("date-filter",      "value"),
     )
-    def switch_tab(n_dash, n_def):
+    def switch_tab(n_dash, n_def, filter_days):
         active_style = {
             "background": WHOOP_GREEN, "color": "#000", "border": "none",
             "borderRadius": "8px", "padding": "8px 20px", "fontSize": "13px",
@@ -357,11 +404,15 @@ def build_app():
             "borderRadius": "8px", "padding": "8px 20px", "fontSize": "13px",
             "fontWeight": "500", "cursor": "pointer",
         }
+        filter_visible = {"display": "flex", "alignItems": "center", "marginBottom": "16px"}
+        filter_hidden  = {"display": "none"}
 
-        # Default to dashboard tab; switch to definitions only when it has more clicks
         if (n_def or 0) > (n_dash or 0):
-            return definitions_page(), inactive_style, active_style
-        return dashboard_page(sleep, recovery, workouts, cycles), active_style, inactive_style
+            return definitions_page(), inactive_style, active_style, filter_hidden
+
+        days = int(filter_days) if filter_days else 0
+        fs, fr, fw, fc = apply_date_filter(sleep, recovery, workouts, cycles, days or None)
+        return dashboard_page(fs, fr, fw, fc), active_style, inactive_style, filter_visible
 
     return app
 
