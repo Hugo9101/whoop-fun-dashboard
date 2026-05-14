@@ -33,6 +33,8 @@ TITLE_GREEN  = "#e2e8f0"
 # ── Data ───────────────────────────────────────────────────────────────────────
 
 def load_profile():
+    if name := os.getenv("ATHLETE_NAME"):
+        return name
     p = DATA_DIR / "profile.json"
     if not p.exists():
         return "Athlete"
@@ -212,6 +214,8 @@ def fig_workout_strain(workouts):
         .sort_values("date_sort")
     )
 
+    ordered_labels = grouped.drop_duplicates("date_sort").sort_values("date_sort")["date_label"].tolist()
+
     sports = sorted(grouped["sport_name"].unique())
     for i, sport in enumerate(sports):
         d = grouped[grouped["sport_name"] == sport]
@@ -223,10 +227,18 @@ def fig_workout_strain(workouts):
             hovertemplate=f"{sport.title()}: %{{y:.1f}} strain<extra></extra>",
         ))
 
-    layout = base_layout("Workout Strain by Sport")
-    layout["margin"] = dict(l=48, r=24, t=52, b=72)
+    title = (
+        "<b>Workout Strain by Sport</b>"
+        "<br><sup style='color:#888888'>Only available for days where activity was detected</sup>"
+    )
+    layout = base_layout(title)
+    layout["title"] = dict(text=title, font=dict(color=TITLE_GREEN, size=14), x=0, xanchor="left")
+    layout["margin"] = dict(l=48, r=24, t=64, b=72)
     layout["barmode"] = "stack"
-    layout["xaxis"] = dict(showgrid=False, zeroline=False, color=MUTED, type="category")
+    layout["xaxis"] = dict(
+        showgrid=False, zeroline=False, color=MUTED,
+        type="category", categoryorder="array", categoryarray=ordered_labels,
+    )
     layout["legend"] = dict(orientation="h", y=-0.22, x=0.5, xanchor="center",
                             font=dict(color=TEXT))
     fig.update_layout(**layout)
