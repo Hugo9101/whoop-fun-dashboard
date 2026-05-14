@@ -1,9 +1,14 @@
 # Secrets & credentials — never commit
 .env
 Get_crednetilas.py
+Old_stuff_not_working/
+.claude/
 
 # Personal health data — never commit
 data/
+
+# Work logs — personal notes, never commit
+Work_logs/
 
 # Python
 __pycache__/

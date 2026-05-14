@@ -2,7 +2,7 @@ import json
 import os
 import pandas as pd
 from pathlib import Path
-from dash import Dash, dcc, html, Input, Output
+from dash import Dash, dcc, html, Input, Output, ctx
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 import plotly.graph_objects as go
@@ -91,7 +91,7 @@ def base_layout(title):
         paper_bgcolor=CARD,
         plot_bgcolor=CARD,
         font=dict(color=TEXT, family="Inter, system-ui, sans-serif"),
-        xaxis=dict(showgrid=False, zeroline=False, color=MUTED),
+        xaxis=dict(showgrid=False, zeroline=False, color=MUTED, tickformat="%b %d"),
         yaxis=dict(showgrid=True, gridcolor=BORDER, zeroline=False, color=MUTED),
         margin=dict(l=48, r=24, t=52, b=40),
         hovermode="x unified",
@@ -154,38 +154,82 @@ def fig_hrv_rhr(recovery):
 
 
 def fig_sleep_stages(sleep):
-    s = sleep[sleep["score_state"] == "SCORED"].sort_values("start")
-    to_h = lambda col: s[col] / 3_600_000
+    s = sleep[sleep["score_state"] == "SCORED"].copy()
     stages = [
         ("score_stage_summary_total_rem_sleep_time_milli",       "REM",   WHOOP_BLUE),
         ("score_stage_summary_total_slow_wave_sleep_time_milli", "SWS",   WHOOP_GREEN),
         ("score_stage_summary_total_light_sleep_time_milli",     "Light", "#a0a0ff"),
         ("score_stage_summary_total_awake_time_milli",           "Awake", WHOOP_RED),
     ]
+    stage_cols = [col for col, _, _ in stages if col in s.columns]
+    s["date_sort"]  = s["start"].dt.strftime("%Y-%m-%d")
+    s["date_label"] = s["start"].dt.strftime("%b %d")
+    grouped = (
+        s.groupby(["date_sort", "date_label"])[stage_cols]
+        .sum()
+        .reset_index()
+        .sort_values("date_sort")
+    )
+
     fig = go.Figure()
     for col, name, color in stages:
-        if col in s.columns:
+        if col in grouped.columns:
             fig.add_trace(go.Bar(
-                x=s["start"], y=to_h(col), name=name,
+                x=grouped["date_label"], y=grouped[col] / 3_600_000, name=name,
                 marker_color=color,
                 hovertemplate=f"{name}: %{{y:.2f}} h<extra></extra>",
             ))
-    fig.update_layout(**base_layout("Sleep Stages (hours)"))
-    fig.update_layout(barmode="stack",
-                      legend=dict(orientation="h", y=-0.22, x=0.5, xanchor="center",
-                                  font=dict(color=TEXT)),
-                      margin=dict(l=48, r=24, t=52, b=72))
+    layout = base_layout("Sleep Stages (hours)")
+    layout["barmode"] = "stack"
+    layout["margin"] = dict(l=48, r=24, t=52, b=72)
+    layout["legend"] = dict(orientation="h", y=-0.22, x=0.5, xanchor="center",
+                            font=dict(color=TEXT))
+    layout["xaxis"] = dict(showgrid=False, zeroline=False, color=MUTED, type="category")
+    fig.update_layout(**layout)
     return fig
 
 
 def fig_workout_strain(workouts):
-    s = workouts[workouts["score_state"] == "SCORED"].sort_values("start")
-    fig = go.Figure(go.Bar(
-        x=s["start"], y=s["score_strain"], name="Strain",
-        marker_color=WHOOP_YELLOW,
-        hovertemplate="Strain %{y:.1f}<extra></extra>",
-    ))
-    fig.update_layout(**base_layout("Workout Strain"))
+    s = workouts[workouts["score_state"] == "SCORED"].copy()
+
+    SPORT_COLORS = [
+        WHOOP_YELLOW, WHOOP_BLUE, WHOOP_GREEN, WHOOP_RED,
+        "#ff9f4c", "#a0a0ff", "#4cffb0", "#ff4ca0",
+    ]
+
+    fig = go.Figure()
+
+    if s.empty:
+        fig.update_layout(**base_layout("Workout Strain by Sport"))
+        return fig
+
+    s["date_sort"]  = s["start"].dt.strftime("%Y-%m-%d")
+    s["date_label"] = s["start"].dt.strftime("%b %d")
+    grouped = (
+        s.groupby(["date_sort", "date_label", "sport_name"])["score_strain"]
+        .sum()
+        .reset_index()
+        .sort_values("date_sort")
+    )
+
+    sports = sorted(grouped["sport_name"].unique())
+    for i, sport in enumerate(sports):
+        d = grouped[grouped["sport_name"] == sport]
+        fig.add_trace(go.Bar(
+            x=d["date_label"],
+            y=d["score_strain"],
+            name=sport.replace("_", " ").title(),
+            marker_color=SPORT_COLORS[i % len(SPORT_COLORS)],
+            hovertemplate=f"{sport.title()}: %{{y:.1f}} strain<extra></extra>",
+        ))
+
+    layout = base_layout("Workout Strain by Sport")
+    layout["margin"] = dict(l=48, r=24, t=52, b=72)
+    layout["barmode"] = "stack"
+    layout["xaxis"] = dict(showgrid=False, zeroline=False, color=MUTED, type="category")
+    layout["legend"] = dict(orientation="h", y=-0.22, x=0.5, xanchor="center",
+                            font=dict(color=TEXT))
+    fig.update_layout(**layout)
     fig.update_yaxes(range=[0, 21])
     return fig
 
@@ -325,22 +369,22 @@ def build_app():
 
             # ── Header ────────────────────────────────────────────────────────
             html.Div([
+                html.Div(athlete, style={
+                    "color": WHOOP_GREEN, "fontWeight": "800",
+                    "fontSize": "32px", "letterSpacing": "-0.5px",
+                    "lineHeight": "1.1",
+                }),
                 html.Div([
                     html.Span("WHOOP", style={
-                        "color": WHOOP_GREEN, "fontWeight": "800",
-                        "fontSize": "26px", "letterSpacing": "-0.5px",
+                        "color": TEXT, "fontWeight": "700",
+                        "fontSize": "13px", "letterSpacing": "0.12em",
+                        "textTransform": "uppercase",
                     }),
-                    html.Span(" Dashboard", style={
-                        "color": TEXT, "fontWeight": "300",
-                        "fontSize": "26px",
+                    html.Span(" · Personal Dashboard", style={
+                        "color": MUTED, "fontWeight": "400",
+                        "fontSize": "13px", "letterSpacing": "0.04em",
                     }),
-                ]),
-                html.Div([
-                    html.Span("Athlete: ", style={"color": MUTED, "fontSize": "15px"}),
-                    html.Span(athlete, style={
-                        "color": TEXT, "fontWeight": "600", "fontSize": "15px",
-                    }),
-                ], style={"marginTop": "6px"}),
+                ], style={"marginTop": "4px"}),
             ], style={"marginBottom": "28px"}),
 
             # ── Nav tabs ──────────────────────────────────────────────────────
@@ -407,7 +451,16 @@ def build_app():
         filter_visible = {"display": "flex", "alignItems": "center", "marginBottom": "16px"}
         filter_hidden  = {"display": "none"}
 
-        if (n_def or 0) > (n_dash or 0):
+        trigger = ctx.triggered_id
+        if trigger == "tab-definitions":
+            on_defs = True
+        elif trigger == "tab-dashboard":
+            on_defs = False
+        else:
+            # Initial load or filter change — infer from click counts
+            on_defs = (n_def or 0) > (n_dash or 0)
+
+        if on_defs:
             return definitions_page(), inactive_style, active_style, filter_hidden
 
         days = int(filter_days) if filter_days else 0
