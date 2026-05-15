@@ -375,76 +375,88 @@ def build_app():
                meta_tags=[{"name": "viewport",
                             "content": "width=device-width, initial-scale=1"}])
 
+    PAD = "clamp(16px, 4vw, 40px)"
+
     app.layout = html.Div(
         style={"background": DARK, "minHeight": "100vh",
-               "padding": "clamp(16px, 4vw, 40px)",
-               "fontFamily": "Inter, system-ui, sans-serif", "boxSizing": "border-box"},
+               "fontFamily": "Inter, system-ui, sans-serif"},
         children=[
 
-            # ── Header ────────────────────────────────────────────────────────
+            # ── Sticky top bar ────────────────────────────────────────────────
             html.Div([
-                html.Div(athlete, style={
-                    "color": WHOOP_GREEN, "fontWeight": "800",
-                    "fontSize": "32px", "letterSpacing": "-0.5px",
-                    "lineHeight": "1.1",
-                }),
+                # Header
                 html.Div([
-                    html.Span("WHOOP", style={
-                        "color": TEXT, "fontWeight": "700",
-                        "fontSize": "13px", "letterSpacing": "0.12em",
-                        "textTransform": "uppercase",
+                    html.Div(athlete, style={
+                        "color": WHOOP_GREEN, "fontWeight": "800",
+                        "fontSize": "32px", "letterSpacing": "-0.5px",
+                        "lineHeight": "1.1",
                     }),
-                    html.Span(" · Personal Dashboard", style={
-                        "color": MUTED, "fontWeight": "400",
-                        "fontSize": "13px", "letterSpacing": "0.04em",
+                    html.Div([
+                        html.Span("WHOOP", style={
+                            "color": TEXT, "fontWeight": "700",
+                            "fontSize": "13px", "letterSpacing": "0.12em",
+                            "textTransform": "uppercase",
+                        }),
+                        html.Span(" · Personal Dashboard", style={
+                            "color": MUTED, "fontWeight": "400",
+                            "fontSize": "13px", "letterSpacing": "0.04em",
+                        }),
+                    ], style={"marginTop": "4px"}),
+                ], style={"marginBottom": "20px"}),
+
+                # Nav tabs
+                html.Div([
+                    html.Button("Dashboard",          id="tab-dashboard",    n_clicks=0),
+                    html.Button("Metric Definitions", id="tab-definitions",  n_clicks=0),
+                ], id="tab-bar", style={"display": "flex", "gap": "4px", "marginBottom": "14px"}),
+
+                # Date filter
+                html.Div([
+                    html.Button("↺ Reset", id="btn-reset", n_clicks=0, style={
+                        "background": SURFACE, "color": MUTED,
+                        "border": f"1px solid {BORDER}", "borderRadius": "8px",
+                        "padding": "6px 14px", "fontSize": "13px",
+                        "cursor": "pointer", "marginRight": "12px",
                     }),
-                ], style={"marginTop": "4px"}),
-            ], style={"marginBottom": "28px"}),
-
-            # ── Nav tabs ──────────────────────────────────────────────────────
-            html.Div([
-                html.Button("Dashboard",          id="tab-dashboard",    n_clicks=0),
-                html.Button("Metric Definitions", id="tab-definitions",  n_clicks=0),
-            ], id="tab-bar", style={"display": "flex", "gap": "4px", "marginBottom": "16px"}),
-
-            # ── Date filter ───────────────────────────────────────────────────
-            html.Div([
-                html.Button("↺ Reset", id="btn-reset", n_clicks=0, style={
-                    "background": SURFACE, "color": MUTED,
-                    "border": f"1px solid {BORDER}", "borderRadius": "8px",
-                    "padding": "6px 14px", "fontSize": "13px",
-                    "cursor": "pointer", "marginRight": "12px",
+                    html.Span("Period:", style={
+                        "color": MUTED, "fontSize": "13px",
+                        "alignSelf": "center", "marginRight": "8px",
+                    }),
+                    dcc.Dropdown(
+                        id="date-filter",
+                        options=[
+                            {"label": "Last 7 days",  "value": 7},
+                            {"label": "Last 30 days", "value": 30},
+                            {"label": "Last 90 days", "value": 90},
+                            {"label": "All time",     "value": 0},
+                        ],
+                        value=7,
+                        clearable=False,
+                        style={
+                            "width": "160px",
+                            "background": SURFACE,
+                            "color": TEXT,
+                            "border": f"1px solid {BORDER}",
+                            "borderRadius": "8px",
+                            "fontSize": "13px",
+                        },
+                    ),
+                ], id="filter-bar", style={
+                    "display": "flex", "alignItems": "center",
+                    "paddingBottom": "14px",
                 }),
-                html.Span("Period:", style={
-                    "color": MUTED, "fontSize": "13px",
-                    "alignSelf": "center", "marginRight": "8px",
-                }),
-                dcc.Dropdown(
-                    id="date-filter",
-                    options=[
-                        {"label": "Last 7 days",  "value": 7},
-                        {"label": "Last 30 days", "value": 30},
-                        {"label": "Last 90 days", "value": 90},
-                        {"label": "All time",     "value": 0},
-                    ],
-                    value=7,
-                    clearable=False,
-                    style={
-                        "width": "160px",
-                        "background": SURFACE,
-                        "color": TEXT,
-                        "border": f"1px solid {BORDER}",
-                        "borderRadius": "8px",
-                        "fontSize": "13px",
-                    },
-                ),
-            ], id="filter-bar", style={
-                "display": "flex", "alignItems": "center",
-                "marginBottom": "16px",
+
+            ], style={
+                "position": "sticky", "top": "0", "zIndex": "100",
+                "background": DARK,
+                "padding": f"{PAD} {PAD} 0 {PAD}",
+                "borderBottom": f"1px solid {BORDER}",
+                "boxSizing": "border-box",
             }),
 
             # ── Content area ──────────────────────────────────────────────────
-            html.Div(id="tab-content"),
+            html.Div(id="tab-content",
+                     style={"padding": PAD, "paddingTop": "20px", "boxSizing": "border-box"}),
         ],
     )
 
