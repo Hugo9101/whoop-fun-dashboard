@@ -97,6 +97,7 @@ def base_layout(title):
         yaxis=dict(showgrid=True, gridcolor=BORDER, zeroline=False, color=MUTED),
         margin=dict(l=48, r=24, t=52, b=40),
         hovermode="x unified",
+        dragmode="pan",
     )
 
 
@@ -263,7 +264,8 @@ def fig_cycle_strain(cycles):
 
 def chart_card(fig):
     return html.Div(
-        dcc.Graph(figure=fig, config={"displayModeBar": False},
+        dcc.Graph(figure=fig,
+                  config={"displayModeBar": False, "scrollZoom": False, "doubleClick": "reset"},
                   responsive=True, style={"minHeight": "280px"}),
         style={"background": CARD, "borderRadius": "12px",
                "border": f"1px solid {BORDER}", "padding": "8px",
@@ -407,6 +409,12 @@ def build_app():
 
             # ── Date filter ───────────────────────────────────────────────────
             html.Div([
+                html.Button("↺ Reset", id="btn-reset", n_clicks=0, style={
+                    "background": SURFACE, "color": MUTED,
+                    "border": f"1px solid {BORDER}", "borderRadius": "8px",
+                    "padding": "6px 14px", "fontSize": "13px",
+                    "cursor": "pointer", "marginRight": "12px",
+                }),
                 html.Span("Period:", style={
                     "color": MUTED, "fontSize": "13px",
                     "alignSelf": "center", "marginRight": "8px",
@@ -448,8 +456,9 @@ def build_app():
         Input("tab-dashboard",    "n_clicks"),
         Input("tab-definitions",  "n_clicks"),
         Input("date-filter",      "value"),
+        Input("btn-reset",        "n_clicks"),
     )
-    def switch_tab(n_dash, n_def, filter_days):
+    def switch_tab(n_dash, n_def, filter_days, n_reset):
         active_style = {
             "background": WHOOP_GREEN, "color": "#000", "border": "none",
             "borderRadius": "8px", "padding": "8px 20px", "fontSize": "13px",
@@ -466,10 +475,9 @@ def build_app():
         trigger = ctx.triggered_id
         if trigger == "tab-definitions":
             on_defs = True
-        elif trigger == "tab-dashboard":
+        elif trigger in ("tab-dashboard", "btn-reset"):
             on_defs = False
         else:
-            # Initial load or filter change — infer from click counts
             on_defs = (n_def or 0) > (n_dash or 0)
 
         if on_defs:
