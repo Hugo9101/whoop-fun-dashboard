@@ -14,6 +14,45 @@ ENV_FILE      = ".env"
 def get_access_token():
     return os.getenv("WHOOP_ACCESS_TOKEN")
 
+def _save_tokens_to_db(access_token, refresh_token):
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return
+    try:
+        from sqlalchemy import create_engine, text
+        engine = create_engine(url)
+        with engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO whoop_tokens (id, access_token, refresh_token)
+                VALUES (1, :at, :rt)
+                ON CONFLICT (id) DO UPDATE
+                SET access_token = EXCLUDED.access_token,
+                    refresh_token = EXCLUDED.refresh_token
+            """), {"at": access_token, "rt": refresh_token})
+    except Exception as e:
+        print(f"  ⚠ Could not save tokens to DB: {e}")
+
+
+def load_tokens_from_db():
+    """Load latest tokens from Supabase — used by remote runners that have no .env."""
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return
+    try:
+        from sqlalchemy import create_engine, text
+        engine = create_engine(url)
+        with engine.connect() as conn:
+            row = conn.execute(text(
+                "SELECT access_token, refresh_token FROM whoop_tokens WHERE id = 1"
+            )).fetchone()
+            if row:
+                os.environ["WHOOP_ACCESS_TOKEN"] = row[0]
+                os.environ["WHOOP_REFRESH_TOKEN"] = row[1]
+                print("✅ Tokens loaded from Supabase")
+    except Exception as e:
+        print(f"  ⚠ Could not load tokens from DB: {e}")
+
+
 def refresh_access_token():
     print("🔄 Refreshing access token...")
     response = requests.post(
@@ -33,7 +72,8 @@ def refresh_access_token():
     set_key(ENV_FILE, "WHOOP_REFRESH_TOKEN", tokens["refresh_token"])
     os.environ["WHOOP_ACCESS_TOKEN"] = tokens["access_token"]
     os.environ["WHOOP_REFRESH_TOKEN"] = tokens["refresh_token"]
-    print("✅ Token refreshed and saved to .env")
+    _save_tokens_to_db(tokens["access_token"], tokens["refresh_token"])
+    print("✅ Token refreshed and saved")
     return tokens["access_token"]
 
 def make_request(endpoint):
