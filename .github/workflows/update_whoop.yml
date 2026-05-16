@@ -22,18 +22,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Check secrets are set
-        env:
-          WHOOP_CLIENT_ID: ${{ secrets.WHOOP_CLIENT_ID }}
-          WHOOP_CLIENT_SECRET: ${{ secrets.WHOOP_CLIENT_SECRET }}
-          WHOOP_REFRESH_TOKEN: ${{ secrets.WHOOP_REFRESH_TOKEN }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          echo "WHOOP_CLIENT_ID set: $([ -n "$WHOOP_CLIENT_ID" ] && echo 'YES (length: '${#WHOOP_CLIENT_ID}')' || echo 'NO - EMPTY')"
-          echo "WHOOP_CLIENT_SECRET set: $([ -n "$WHOOP_CLIENT_SECRET" ] && echo 'YES (length: '${#WHOOP_CLIENT_SECRET}')' || echo 'NO - EMPTY')"
-          echo "WHOOP_REFRESH_TOKEN set: $([ -n "$WHOOP_REFRESH_TOKEN" ] && echo 'YES (length: '${#WHOOP_REFRESH_TOKEN}')' || echo 'NO - EMPTY')"
-          echo "DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo 'YES (length: '${#DATABASE_URL}')' || echo 'NO - EMPTY')"
-
       - name: Fetch WHOOP data and update Supabase
         env:
           WHOOP_CLIENT_ID: ${{ secrets.WHOOP_CLIENT_ID }}
