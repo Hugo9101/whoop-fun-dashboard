@@ -6,6 +6,7 @@ Old_stuff_not_working/
 
 # Personal health data — never commit
 data/
+dashboard.html
 
 # Work logs — personal notes, never commit
 Work_logs/

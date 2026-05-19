@@ -3,8 +3,8 @@ from fetch import get_profile, get_sleep, get_recovery, get_workouts, get_cycles
 from store import save_sleep, save_recovery, save_workouts, save_cycles, save_profile
 
 def run():
-    if os.getenv("CI"):
-        load_tokens_from_db()
+    # Always load from DB when available so local tokens stay in sync with CI rotations
+    load_tokens_from_db()
     refresh_access_token()
 
     profile  = get_profile()

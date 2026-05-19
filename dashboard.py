@@ -60,7 +60,7 @@ def load_data():
     workouts = read("workouts")
     cycles   = read("cycles")
 
-    for df, col in [(sleep, "start"), (workouts, "start"), (cycles, "start")]:
+    for df, col in [(sleep, "start"), (sleep, "end"), (workouts, "start"), (cycles, "start")]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], utc=True)
     if "created_at" in recovery.columns:
@@ -115,9 +115,9 @@ def fig_recovery(recovery):
 
 
 def fig_sleep_performance(sleep):
-    s = sleep[sleep["score_state"] == "SCORED"].sort_values("start")
+    s = sleep[(sleep["score_state"] == "SCORED") & (sleep["nap"] == False)].sort_values("end")
     fig = go.Figure(go.Scatter(
-        x=s["start"], y=s["score_sleep_performance_percentage"],
+        x=s["end"], y=s["score_sleep_performance_percentage"],
         mode="lines+markers", name="Sleep Performance",
         line=dict(color=WHOOP_GREEN, width=2), marker=dict(size=5),
         hovertemplate="%{y:.0f}%<extra></extra>",
@@ -157,7 +157,7 @@ def fig_hrv_rhr(recovery):
 
 
 def fig_sleep_stages(sleep):
-    s = sleep[sleep["score_state"] == "SCORED"].copy()
+    s = sleep[(sleep["score_state"] == "SCORED") & (sleep["nap"] == False)].copy()
     stages = [
         ("score_stage_summary_total_rem_sleep_time_milli",       "REM",   WHOOP_BLUE),
         ("score_stage_summary_total_slow_wave_sleep_time_milli", "SWS",   WHOOP_GREEN),
@@ -165,8 +165,8 @@ def fig_sleep_stages(sleep):
         ("score_stage_summary_total_awake_time_milli",           "Awake", WHOOP_RED),
     ]
     stage_cols = [col for col, _, _ in stages if col in s.columns]
-    s["date_sort"]  = s["start"].dt.strftime("%Y-%m-%d")
-    s["date_label"] = s["start"].dt.strftime("%b %d")
+    s["date_sort"]  = s["end"].dt.strftime("%Y-%m-%d")
+    s["date_label"] = s["end"].dt.strftime("%b %d")
     grouped = (
         s.groupby(["date_sort", "date_label"])[stage_cols]
         .sum()
@@ -249,8 +249,9 @@ def fig_workout_strain(workouts):
 
 def fig_cycle_strain(cycles):
     s = cycles[cycles["score_state"] == "SCORED"].sort_values("start")
+    display_date = s["start"].dt.normalize() + pd.Timedelta(days=1)
     fig = go.Figure(go.Scatter(
-        x=s["start"], y=s["score_strain"],
+        x=display_date, y=s["score_strain"],
         mode="lines+markers", name="Day Strain",
         line=dict(color=WHOOP_YELLOW, width=2), marker=dict(size=5),
         hovertemplate="Day Strain %{y:.1f}<extra></extra>",

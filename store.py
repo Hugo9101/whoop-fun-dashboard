@@ -49,22 +49,38 @@ def _save(records, table, id_key):
 
     engine = _get_engine()
 
-    # Read existing IDs from Supabase (table may not exist yet on first run)
     try:
         existing = pd.read_sql(f'SELECT "{id_key}" FROM {table}', engine)
         existing_ids = set(existing[id_key].astype(str))
         new_df = df[~df[id_key].isin(existing_ids)]
+        update_df = df[df[id_key].isin(existing_ids)]
     except Exception:
-        new_df = df  # Table doesn't exist yet — will be created below
+        new_df = df
+        update_df = pd.DataFrame()
 
-    if new_df.empty:
-        print(f"   → {table}: 0 new records")
-        return
+    inserted = 0
+    updated = 0
 
-    new_df.to_sql(table, engine, if_exists="append", index=False)
-    print(f"   → {table}: +{len(new_df)} new records")
+    if not new_df.empty:
+        new_df.to_sql(table, engine, if_exists="append", index=False)
+        inserted = len(new_df)
 
-    # Keep a local CSV backup as well
+    # Update existing records so fields like `end` and `score_state` stay current
+    if not update_df.empty:
+        cols = [c for c in update_df.columns if c != id_key]
+        set_clause = ", ".join(f'"{c}" = :{c}' for c in cols)
+        from sqlalchemy import text as _text
+        with engine.begin() as conn:
+            for _, row in update_df.iterrows():
+                params = {c: (None if pd.isna(row[c]) else row[c]) for c in cols}
+                params[id_key] = row[id_key]
+                conn.execute(_text(
+                    f'UPDATE {table} SET {set_clause} WHERE "{id_key}" = :{id_key}'
+                ), params)
+        updated = len(update_df)
+
+    print(f"   → {table}: +{inserted} new, ~{updated} updated")
+
     _backup_csv(df, table, id_key)
 
 
