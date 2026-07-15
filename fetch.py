@@ -55,13 +55,26 @@ def load_tokens_from_db():
 
 def refresh_access_token():
     print("🔄 Refreshing access token...")
+    client_id     = (CLIENT_ID or "").strip()
+    client_secret = (CLIENT_SECRET or "").strip()
+    refresh_token = (os.getenv("WHOOP_REFRESH_TOKEN") or "").strip()
+    missing = [name for name, value in [
+        ("WHOOP_CLIENT_ID", client_id),
+        ("WHOOP_CLIENT_SECRET", client_secret),
+        ("WHOOP_REFRESH_TOKEN", refresh_token),
+    ] if not value]
+    if missing:
+        raise RuntimeError(
+            f"❌ Missing credentials: {', '.join(missing)} — "
+            "set them in .env locally or as GitHub Actions secrets in CI"
+        )
     response = requests.post(
         "https://api.prod.whoop.com/oauth/oauth2/token",
         data={
             "grant_type":    "refresh_token",
-            "client_id":     CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
-            "refresh_token": os.getenv("WHOOP_REFRESH_TOKEN"),
+            "client_id":     client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
         }
     )
     tokens = response.json()
