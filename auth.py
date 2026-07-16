@@ -59,6 +59,9 @@ for key, value in [("WHOOP_ACCESS_TOKEN", access_token), ("WHOOP_REFRESH_TOKEN",
 with open(".env", "w") as f:
     f.write(env_contents)
 
-print("\n✅ Tokens saved to .env")
+from fetch import _save_tokens_to_db
+_save_tokens_to_db(access_token, refresh_token)
+
+print("\n✅ Tokens saved to .env and Supabase")
 print(f"Access Token:  {access_token[:20]}...")
 print(f"Refresh Token: {refresh_token[:20]}...")

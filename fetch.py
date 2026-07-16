@@ -30,7 +30,9 @@ def _save_tokens_to_db(access_token, refresh_token):
                     refresh_token = EXCLUDED.refresh_token
             """), {"at": access_token, "rt": refresh_token})
     except Exception as e:
-        print(f"  ⚠ Could not save tokens to DB: {e}")
+        # A silently lost rotation kills the whole token chain (WHOOP revokes
+        # on reuse), so this must be loud — re-run auth.py if it ever fires.
+        raise RuntimeError(f"❌ Token rotated but could not be saved to DB: {e}") from e
 
 
 def load_tokens_from_db():

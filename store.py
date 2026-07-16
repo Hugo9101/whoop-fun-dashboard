@@ -22,7 +22,7 @@ def _get_engine():
         url = os.getenv("DATABASE_URL")
         if not url:
             raise RuntimeError("DATABASE_URL not set in .env")
-        _engine = create_engine(url)
+        _engine = create_engine(url, pool_pre_ping=True, pool_recycle=300)
     return _engine
 
 
@@ -65,18 +65,17 @@ def _save(records, table, id_key):
         new_df.to_sql(table, engine, if_exists="append", index=False)
         inserted = len(new_df)
 
-    # Update existing records so fields like `end` and `score_state` stay current
     if not update_df.empty:
         cols = [c for c in update_df.columns if c != id_key]
         set_clause = ", ".join(f'"{c}" = :{c}' for c in cols)
-        from sqlalchemy import text as _text
-        with engine.begin() as conn:
-            for _, row in update_df.iterrows():
-                params = {c: (None if pd.isna(row[c]) else row[c]) for c in cols}
-                params[id_key] = row[id_key]
-                conn.execute(_text(
-                    f'UPDATE {table} SET {set_clause} WHERE "{id_key}" = :{id_key}'
-                ), params)
+        update_sql = text(
+            f'UPDATE {table} SET {set_clause} WHERE "{id_key}" = :{id_key}'
+        )
+        for _, row in update_df.iterrows():
+            params = {c: (None if pd.isna(row[c]) else row[c]) for c in cols}
+            params[id_key] = row[id_key]
+            with engine.begin() as conn:
+                conn.execute(update_sql, params)
         updated = len(update_df)
 
     print(f"   → {table}: +{inserted} new, ~{updated} updated")
