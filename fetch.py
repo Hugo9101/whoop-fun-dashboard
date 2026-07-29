@@ -77,6 +77,7 @@ def refresh_access_token():
             "client_id":     client_id,
             "client_secret": client_secret,
             "refresh_token": refresh_token,
+            "scope":         "offline",
         }
     )
     tokens = response.json()
