@@ -39,6 +39,36 @@ def _flatten(record, prefix=""):
     return out
 
 
+def _sql_type(series):
+    if pd.api.types.is_bool_dtype(series):
+        return "BOOLEAN"
+    if pd.api.types.is_integer_dtype(series):
+        return "BIGINT"
+    if pd.api.types.is_float_dtype(series):
+        return "DOUBLE PRECISION"
+    return "TEXT"
+
+
+def _add_missing_columns(df, table, engine):
+    """WHOOP adds new fields over time (e.g. cycles.step_count) — add them to
+    the table instead of crashing the whole daily sync."""
+    with engine.begin() as conn:
+        existing = {
+            row[0] for row in conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = :t"
+            ), {"t": table})
+        }
+        if not existing:
+            return  # table doesn't exist yet — to_sql will create it
+        for col in df.columns:
+            if col not in existing:
+                conn.execute(text(
+                    f'ALTER TABLE {table} ADD COLUMN "{col}" {_sql_type(df[col])}'
+                ))
+                print(f"   + {table}: added new column {col}")
+
+
 def _save(records, table, id_key):
     if not records:
         print(f"   → {table}: no data")
@@ -48,6 +78,7 @@ def _save(records, table, id_key):
     df[id_key] = df[id_key].astype(str)
 
     engine = _get_engine()
+    _add_missing_columns(df, table, engine)
 
     try:
         existing = pd.read_sql(f'SELECT "{id_key}" FROM {table}', engine)

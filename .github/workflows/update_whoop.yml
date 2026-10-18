@@ -5,6 +5,11 @@ on:
     - cron: '0 7 * * *'  # Daily at 07:00 UTC
   workflow_dispatch:       # Allows manual trigger from GitHub UI
 
+# Never run two syncs at once — parallel refreshes race on the single-use refresh token
+concurrency:
+  group: whoop-sync
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest

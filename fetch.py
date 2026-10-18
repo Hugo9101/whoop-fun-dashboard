@@ -52,7 +52,10 @@ def load_tokens_from_db():
                 os.environ["WHOOP_REFRESH_TOKEN"] = row[1]
                 print("✅ Tokens loaded from Supabase")
     except Exception as e:
-        print(f"  ⚠ Could not load tokens from DB: {e}")
+        # Falling back to a stale refresh token (e.g. the GitHub secret) means
+        # reusing an already-rotated token, which can revoke the whole chain.
+        # Better to skip this run and retry tomorrow with the chain intact.
+        raise RuntimeError(f"❌ Could not load tokens from DB: {e}") from e
 
 
 def refresh_access_token():
