@@ -10,23 +10,23 @@
 - If a secret is ever accidentally committed: rotate the credential immediately and rewrite git history.
 
 ## Project overview
-Personal fitness dashboard — fetches data from the WHOOP API and displays it in a Plotly Dash app backed by Supabase (PostgreSQL).
+Personal fitness dashboard — fetches data from the WHOOP API and displays it in a Plotly Dash app backed by Neon (PostgreSQL), provisioned through the Vercel Marketplace. (Migrated from Supabase on 2026-11-05.)
 
 ## Files
 | File | Purpose |
 |---|---|
 | `auth.py` | One-time OAuth2 flow — run manually to get tokens |
 | `fetch.py` | Pulls data from WHOOP API with auto token refresh |
-| `store.py` | Saves fetched data to Supabase + local CSV backup |
+| `store.py` | Saves fetched data to Neon + local CSV backup |
 | `main.py` | Daily runner: refresh token → fetch all → save |
-| `dashboard.py` | Plotly Dash app, reads from Supabase |
+| `dashboard.py` | Plotly Dash app, reads from Neon |
 | `api/index.py` | Vercel serverless entry point |
 | `vercel.json` | Vercel routing config |
 | `requirements.txt` | Python dependencies for Vercel |
 
 ## Daily workflow
 ```
-python3 main.py        # fetch new WHOOP data → save to Supabase
+python3 main.py        # fetch new WHOOP data → save to Neon
 python3 dashboard.py   # view dashboard at http://127.0.0.1:8050
 ```
 
@@ -35,7 +35,7 @@ python3 dashboard.py   # view dashboard at http://127.0.0.1:8050
 - `WHOOP_CLIENT_SECRET`
 - `WHOOP_ACCESS_TOKEN`
 - `WHOOP_REFRESH_TOKEN`
-- `DATABASE_URL` — Supabase transaction pooler connection string
+- `DATABASE_URL` — Neon pooled connection string. Must start with `postgresql+psycopg2://` (plain `postgresql://` makes SQLAlchemy 2.1+ look for `psycopg` v3, which isn't installed)
 
 ## WHOOP API
 - Base URL: `https://api.prod.whoop.com/developer`
@@ -43,10 +43,11 @@ python3 dashboard.py   # view dashboard at http://127.0.0.1:8050
 - Token refresh: `POST https://api.prod.whoop.com/oauth/oauth2/token`
 - Scopes: `read:sleep read:recovery read:workout read:profile read:cycles offline`
 
-## Supabase
-- Free PostgreSQL database (eu-west-1)
-- Tables: `sleep`, `recovery`, `workouts`, `cycles`
-- Uses transaction pooler (port 6543) — direct connection is IPv6 only
+## Database (Neon)
+- Free Neon Postgres via Vercel Marketplace — resource `neon-beige-dog`, connected to Vercel project `whoop-fun-dashboard`
+- Tables: `sleep`, `recovery`, `workouts`, `cycles`, `whoop_tokens` (id=1 holds the live WHOOP token pair — source of truth for CI)
+- `DATABASE_URL` is set in three places: `.env`, GitHub secret, Vercel env (Production + Preview)
+- Vercel also has auto-created `NEON_*` vars from the integration; the app only reads `DATABASE_URL`
 
 ## Vercel deployment
 - Entry point: `api/index.py` exposes `app.server` (Flask WSGI)
